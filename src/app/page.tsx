@@ -9,24 +9,43 @@ export default function Home() {
   const { user, isLoading, signInWithSpotify } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [verificationNeeded, setVerificationNeeded] = useState(false);
 
   // Check for error in URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const errorParam = urlParams.get('error');
+    const errorDescription = urlParams.get('error_description');
+    const errorCode = urlParams.get('error_code');
+    
     if (errorParam) {
-      switch (errorParam) {
-        case 'missing_code':
-          setError('Authentication failed: Missing authorization code');
-          break;
-        case 'not_authenticated':
-          setError('Authentication failed: User not authenticated');
-          break;
-        case 'spotify_callback_error':
-          setError('Authentication failed: Error processing Spotify callback');
-          break;
-        default:
-          setError(`Authentication failed: ${errorParam}`);
+      console.log('Auth error:', { errorParam, errorDescription, errorCode });
+      
+      // Handle specific error cases
+      if (errorCode === 'provider_email_needs_verification') {
+        setVerificationNeeded(true);
+        setError('Your Spotify email needs verification. Please check your email inbox and verify your account before trying again.');
+      } else {
+        switch (errorParam) {
+          case 'missing_code':
+            setError('Authentication failed: Missing authorization code');
+            break;
+          case 'not_authenticated':
+            setError('Authentication failed: User not authenticated');
+            break;
+          case 'spotify_callback_error':
+            setError('Authentication failed: Error processing Spotify callback');
+            break;
+          case 'access_denied':
+            if (errorDescription) {
+              setError(`Authentication failed: ${errorDescription.replace(/\+/g, ' ')}`);
+            } else {
+              setError('Authentication failed: Access denied by Spotify');
+            }
+            break;
+          default:
+            setError(`Authentication failed: ${errorParam}`);
+        }
       }
     }
   }, []);
@@ -60,7 +79,13 @@ export default function Home() {
 
         {error && (
           <div className="bg-red-500 text-white p-4 rounded-md mb-6">
-            {error}
+            <p className="font-bold mb-2">{verificationNeeded ? 'Email Verification Required' : 'Authentication Error'}</p>
+            <p>{error}</p>
+            {verificationNeeded && (
+              <p className="mt-2 text-sm">
+                After verifying your email, please try connecting again.
+              </p>
+            )}
           </div>
         )}
 

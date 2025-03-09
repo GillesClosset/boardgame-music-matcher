@@ -80,13 +80,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Sign in with Spotify
   const signInWithSpotify = async () => {
     try {
-      await supabase.auth.signInWithOAuth({
+      console.log('Signing in with Spotify...');
+      
+      // Clear any previous errors from localStorage
+      localStorage.removeItem('auth_error');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'spotify',
         options: {
           scopes: 'user-read-email playlist-modify-private playlist-modify-public user-read-private streaming',
-          redirectTo: `${window.location.origin}/api/auth/callback`,
+          // Use the redirect URI from environment variables
+          redirectTo: process.env.NEXT_PUBLIC_REDIRECT_URI || 'https://hiagslphkigebtdxayco.supabase.co/auth/v1/callback',
         },
       });
+      
+      if (error) {
+        console.error('Supabase OAuth error:', error);
+        // Store the error in localStorage to retrieve it after redirect
+        localStorage.setItem('auth_error', JSON.stringify({
+          message: error.message,
+          status: error.status
+        }));
+        throw error;
+      }
+      
+      console.log('Sign in initiated:', data);
     } catch (error) {
       console.error('Error signing in with Spotify:', error);
       throw error;

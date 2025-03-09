@@ -3,155 +3,214 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import Link from 'next/link';
+import supabase from '@/lib/supabase';
+
+interface Playlist {
+  id: string;
+  name: string;
+  description: string;
+  board_game_name: string;
+  spotify_playlist_id?: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  board_game_id: string;
+  board_game_image_url?: string;
+  mood_settings?: Record<string, any>;
+  tracks?: Record<string, any>[];
+}
+
+interface Profile {
+  id: string;
+  spotify_id?: string;
+  display_name?: string;
+  avatar_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
 
 export default function Dashboard() {
   const { user, isLoading, signOut } = useAuth();
   const router = useRouter();
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   // Redirect to home if not logged in
   useEffect(() => {
-    if (!user && !isLoading) {
+    if (!isLoading && !user) {
       router.push('/');
     }
   }, [user, isLoading, router]);
 
-  // Handle token extraction from URL
+  // Fetch user profile and playlists
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const accessToken = urlParams.get('access_token');
-    const refreshToken = urlParams.get('refresh_token');
-    const expiresAt = urlParams.get('expires_at');
+    const fetchData = async () => {
+      if (!user) return;
 
-    if (accessToken && refreshToken && expiresAt) {
-      // Store tokens in localStorage
-      localStorage.setItem(
-        'spotify_tokens',
-        JSON.stringify({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          expires_at: expiresAt,
-        })
-      );
+      try {
+        // Fetch user profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-      // Remove tokens from URL
-      router.replace('/dashboard');
-    }
-  }, [router]);
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          
+          // Try to create the profile if it doesn't exist
+          try {
+            const { data: newProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert({
+                id: user.id,
+                display_name: user.email?.split('@')[0] || 'User',
+                updated_at: new Date().toISOString(),
+              })
+              .select()
+              .single();
+              
+            if (createError) {
+              console.error('Error creating profile:', createError);
+            } else {
+              setProfile(newProfile);
+            }
+          } catch (createProfileError) {
+            console.error('Error creating profile:', createProfileError);
+          }
+        } else {
+          setProfile(profileData);
+        }
+
+        // Fetch user playlists
+        const { data: playlistsData, error: playlistsError } = await supabase
+          .from('playlists')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (playlistsError) {
+          console.error('Error fetching playlists:', playlistsError);
+          setError('Failed to load playlists');
+        } else {
+          setPlaylists(playlistsData || []);
+        }
+      } catch (error) {
+        console.error('Error in dashboard data fetching:', error);
+        setError('An error occurred while loading your dashboard');
+      } finally {
+        setIsLoadingPlaylists(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
 
   // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut();
+      router.push('/');
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('Error signing out:', error);
+      setError('Failed to sign out');
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-b from-blue-900 to-purple-900 text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+        <p className="mt-4">Loading your dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-blue-900 text-white shadow-md">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Board Game Music Matcher</h1>
-          <div className="flex items-center gap-4">
-            {user && (
-              <>
-                <span className="hidden md:inline">
-                  Hello, {user.user_metadata?.full_name || user.email}
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors"
-                >
-                  Sign Out
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-bold mb-4">Create New Playlist</h2>
-            <p className="mb-6 text-gray-600">
-              Search for a board game, adjust your mood settings, and generate a custom playlist.
-            </p>
-            <Link
-              href="/game/search"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg inline-block transition-colors"
-            >
-              Get Started
-            </Link>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-bold mb-4">Your Saved Playlists</h2>
-            <p className="mb-6 text-gray-600">
-              View and play your previously generated playlists.
-            </p>
-            <Link
-              href="/playlist/history"
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg inline-block transition-colors"
-            >
-              View Playlists
-            </Link>
-          </div>
+    <div className="min-h-screen bg-gradient-to-b from-blue-900 to-purple-900 text-white">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Your Dashboard</h1>
+          <button
+            onClick={handleSignOut}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+          >
+            Sign Out
+          </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-4">How It Works</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="border border-gray-200 rounded-lg p-4">
-              <div className="bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mb-3">
-                1
-              </div>
-              <h3 className="font-bold mb-2">Search for a Game</h3>
-              <p className="text-gray-600">
-                Find your favorite board game from our extensive database.
-              </p>
-            </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <div className="bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mb-3">
-                2
-              </div>
-              <h3 className="font-bold mb-2">Adjust Your Mood</h3>
-              <p className="text-gray-600">
-                Set the energy level, emotional tone, and other parameters.
-              </p>
-            </div>
-            <div className="border border-gray-200 rounded-lg p-4">
-              <div className="bg-blue-100 text-blue-800 rounded-full w-8 h-8 flex items-center justify-center mb-3">
-                3
-              </div>
-              <h3 className="font-bold mb-2">Enjoy Your Playlist</h3>
-              <p className="text-gray-600">
-                Get a custom Spotify playlist that matches your game and mood.
-              </p>
-            </div>
+        {error && (
+          <div className="bg-red-500 text-white p-4 rounded-md mb-6">
+            {error}
           </div>
-        </div>
-      </main>
+        )}
 
-      <footer className="bg-gray-800 text-white py-6">
-        <div className="container mx-auto px-4 text-center">
+        <div className="bg-white/10 rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-bold mb-4">Welcome, {profile?.display_name || user?.email || 'User'}</h2>
           <p>
-            Board Game Music Matcher &copy; {new Date().getFullYear()}. Not affiliated with Spotify or BoardGameGeek.
+            Create playlists tailored to your board games and mood preferences.
           </p>
+          <div className="mt-4 flex space-x-4">
+            <button
+              onClick={() => router.push('/game/search')}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+            >
+              Find a Game
+            </button>
+          </div>
         </div>
-      </footer>
+
+        <h2 className="text-2xl font-bold mb-4">Your Saved Playlists</h2>
+        
+        {isLoadingPlaylists ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white mx-auto"></div>
+            <p className="mt-2">Loading playlists...</p>
+          </div>
+        ) : playlists.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {playlists.map((playlist: any) => (
+              <div key={playlist.id} className="bg-white/10 rounded-lg overflow-hidden">
+                <div className="p-4">
+                  <h3 className="text-lg font-bold mb-1">{playlist.name}</h3>
+                  <p className="text-sm opacity-80 mb-2">For {playlist.board_game_name}</p>
+                  <p className="text-sm mb-4">{playlist.description}</p>
+                  <div className="flex justify-between">
+                    <button
+                      onClick={() => router.push(`/playlist/${playlist.id}`)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                    >
+                      View Details
+                    </button>
+                    {playlist.spotify_playlist_id && (
+                      <a
+                        href={`https://open.spotify.com/playlist/${playlist.spotify_playlist_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Open in Spotify
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white/5 rounded-lg p-8 text-center">
+            <p className="mb-4">You haven't created any playlists yet.</p>
+            <button
+              onClick={() => router.push('/game/search')}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+            >
+              Create Your First Playlist
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 
