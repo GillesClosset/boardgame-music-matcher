@@ -6,7 +6,7 @@ This guide will help you enable and configure the Spotify OAuth provider in your
 
 1. **Log in to your Supabase Dashboard**
    - Go to https://supabase.com and log in to your account
-   - Select your project (URL: https://hiagslphkigebtdxayco.supabase.co)
+   - Select your project (URL: https://xxx.supabase.co)
 
 2. **Navigate to Authentication Settings**
    - In the left sidebar, click on "Authentication"
@@ -16,15 +16,15 @@ This guide will help you enable and configure the Spotify OAuth provider in your
    - Find "Spotify" in the list of OAuth providers
    - Toggle the switch to enable it
    - Enter your Spotify credentials:
-     - Client ID: `29fa231ee64c46949c6bf3ed275ed3ac`
-     - Client Secret: `fd62837060e6409a8b77a1c16c21cd14`
-   - Note: The Callback URL is automatically set to `https://hiagslphkigebtdxayco.supabase.co/auth/v1/callback` and cannot be changed
+     - Client ID: `xxx`
+     - Client Secret: `xxx`
+   - Note: The Callback URL is automatically set to `https://xxx.supabase.co/auth/v1/callback` and cannot be changed
    - Click "Save" to apply the changes
 
 4. **Configure Spotify Developer App Settings**
    - Go to https://developer.spotify.com/dashboard
    - Log in and select your app
-   - Add the following Redirect URI: `https://hiagslphkigebtdxayco.supabase.co/auth/v1/callback`
+   - Add the following Redirect URI: `https://xxx.supabase.co/auth/v1/callback`
    - Save the changes
 
 5. **Test the Authentication**
@@ -44,8 +44,8 @@ If you encounter any issues:
 2. **Verify Environment Variables**
    - Make sure your `.env.local` file has the correct values:
      ```
-     NEXT_PUBLIC_SPOTIFY_CLIENT_ID=29fa231ee64c46949c6bf3ed275ed3ac
-     SPOTIFY_CLIENT_SECRET=fd62837060e6409a8b77a1c16c21cd14
+     NEXT_PUBLIC_SPOTIFY_CLIENT_ID=xxx
+     SPOTIFY_CLIENT_SECRET=xxx
      SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/callback
      ```
 
